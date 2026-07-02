@@ -23,4 +23,4 @@ env/
 
 # Pytest
 .pytest_cache/
-app/
+
