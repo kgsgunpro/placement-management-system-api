@@ -35,9 +35,9 @@ async def create_student(student : NewStudent):
 async def update_student(id:int ,student : NewStudent) :
     for students in students_db :
         if id == students['id']:
-            students.update({'name': student.name , 'class' : student.class_no})
+            students.update({'name': student.name , 'class_no' : student.class_no})
             return students
-    return HTTPException(status_code=404 , detail = 'Student not found')
+    raise HTTPException(status_code=404 , detail = 'Student not found')
 
 @router.delete('/{id}')
 async def delete_student(id:int):
