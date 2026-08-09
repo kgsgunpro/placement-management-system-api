@@ -10,14 +10,14 @@ student_db = psycopg.connect(
     port=os.getenv("DB_PORT"),
     dbname=os.getenv("DB_NAME"),
     user=os.getenv("DB_USER"),
-    password=os.getenv("DB_PASSWORD"))
+    password=os.getenv("DB_PASSWORD") , row_factory=dict_row)
 
 
 if __name__ == '__main__' :
     print("✅ Connected Successfully!")
     curr =student_db.cursor(row_factory=dict_row)
-    curr.execute('SELECT * FROM students ')
-    print(curr.fetchall())
+    # curr.execute('SELECT * FROM students ')
+    # print(curr.fetchall())
 
     # curr.execute("INSERT INTO students(name ,class_no) Values (  %(name)s , %(class_no)s)" ,
     #               { 'name' : 'Guna' , 'class_no' :12 })
@@ -27,15 +27,18 @@ if __name__ == '__main__' :
     # student_db.commit()
   
 
-#     curr.execute("""
-#     INSERT INTO students (name, class_no)
-#       VALUES
-#     ('Ravi', 10),
-#     ('Ram', 9),
-#     ('Arun', 7),
-#     ('Guna', 12),
-#     ('Sujan', 12);
-#     """)
+    curr.execute("""
+   CREATE TABLE students (
+    id SERIAL PRIMARY KEY,
+    roll_no VARCHAR(30) UNIQUE NOT NULL,
+    name VARCHAR(100) NOT NULL,
+    passing_out_year INTEGER NOT NULL,
+    email VARCHAR(150) UNIQUE NOT NULL,
+    phone VARCHAR(15),
+    branch VARCHAR(50) NOT NULL,
+    cgpa DECIMAL(4,2) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ) ;
+     """)
 
     student_db.commit()
 

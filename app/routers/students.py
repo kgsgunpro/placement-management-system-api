@@ -1,83 +1,208 @@
-from fastapi import FastAPI ,HTTPException , APIRouter
-from pydantic import BaseModel
-from typing import Annotated
-from app.database.connection import student_db , dict_row
 
-#postgreSQL
+from fastapi import APIRouter, HTTPException
+from psycopg.errors import UniqueViolation
 
-cur = student_db.cursor(row_factory=dict_row)
+from app.database.connection import student_db
+from app.schemas.student import NewStudent, Student
 
 
-
-#router
-router=APIRouter(prefix='/students' , tags=['Students'])
-
-
-class NewStudent(BaseModel):
-    name:str
-    class_no:int
+router = APIRouter(
+    prefix="/students",
+    tags=["Students"],
+)
 
 
+# -------------------------
+# GET ALL STUDENTS
+# -------------------------
 
-class Student(NewStudent):
-    id :int
+@router.get("/", response_model=list[Student])
+async def get_students():
+
+    with student_db.cursor() as cur:
+
+        cur.execute(
+            """
+            SELECT *
+            FROM students
+            ORDER BY id;
+            """
+        )
+
+        students = cur.fetchall()
+
+    return students
 
 
-# students_db : list[dict]=[{'id' : 1 , 'name':'ravi' , 'class_no' :10}]
+# -------------------------
+# GET STUDENT BY ID
+# -------------------------
 
-def not_found(m):
-    raise HTTPException(status_code=404 , detail=m)
+@router.get("/{id}", response_model=Student)
+async def get_student_by_id(id: int):
+
+    with student_db.cursor() as cur:
+
+        cur.execute(
+            """
+            SELECT *
+            FROM students
+            WHERE id = %s;
+            """,
+            (id,),
+        )
+
+        student = cur.fetchone()
+
+    if student is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Student not found",
+        )
+
+    return student
 
 
-@router.get('/' , response_model=list[Student])
-async def get_students(classno : Annotated[int | None , ' get students by class'] = None):
-    if classno is not None :
-        cur.execute('select * from students where class_no= %(class_no)s' , {'class_no' : classno})
-        temp= cur.fetchall()
-        if not temp:
-            not_found('Students not found')
-        return temp
-    cur.execute('select * from students')
-    temp=cur.fetchall()
-    return temp
+# -------------------------
+# CREATE STUDENT
+# -------------------------
 
-@router.get('/{id}' , response_model= Student )
-async def get_student_by_id(id:int ):
-    cur.execute('select * from students where id = %s' , (id ,))
-    rows=cur.fetchall()
-    if rows :
-        return rows[0]
-    not_found('student not found')
+@router.post("/", response_model=Student, status_code=201)
+async def create_student(student: NewStudent):
 
-@router.post('/' , response_model=Student , status_code= 201)
-async def create_student(student : NewStudent):
-    new_entry = {'name' : student.name , 'class_no': student.class_no}
-    cur.execute('''insert into students (  name , class_no ) 
-                values ( %(name)s ,%(class_no)s  ) 
-                returning * ;''' , new_entry )
+    try:
+
+        with student_db.cursor() as cur:
+
+            cur.execute(
+                """
+                INSERT INTO students (
+                    roll_no,
+                    name,
+                    passing_out_year,
+                    email,
+                    phone,
+                    branch,
+                    cgpa
+                )
+                VALUES (
+                    %(roll_no)s,
+                    %(name)s,
+                    %(passing_out_year)s,
+                    %(email)s,
+                    %(phone)s,
+                    %(branch)s,
+                    %(cgpa)s
+                )
+                RETURNING *;
+                """,
+                student.model_dump(),
+            )
+
+            new_student = cur.fetchone()
+
+        student_db.commit()
+
+        return new_student
+
+    except UniqueViolation:
+
+        student_db.rollback()
+
+        raise HTTPException(
+            status_code=409,
+            detail="Roll number or email already exists",
+        )
+
+
+# -------------------------
+# UPDATE STUDENT
+# -------------------------
+
+@router.put("/{id}", response_model=Student)
+async def update_student(
+    id: int,
+    student: NewStudent,
+):
+
+    try:
+
+        with student_db.cursor() as cur:
+
+            cur.execute(
+                """
+                UPDATE students
+                SET
+                    roll_no = %(roll_no)s,
+                    name = %(name)s,
+                    passing_out_year = %(passing_out_year)s,
+                    email = %(email)s,
+                    phone = %(phone)s,
+                    branch = %(branch)s,
+                    cgpa = %(cgpa)s
+                WHERE id = %(id)s
+                RETURNING *;
+                """,
+                {
+                    **student.model_dump(),
+                    "id": id,
+                },
+            )
+
+            updated_student = cur.fetchone()
+
+        if updated_student is None:
+
+            student_db.rollback()
+
+            raise HTTPException(
+                status_code=404,
+                detail="Student not found",
+            )
+
+        student_db.commit()
+
+        return updated_student
+
+    except UniqueViolation:
+
+        student_db.rollback()
+
+        raise HTTPException(
+            status_code=409,
+            detail="Roll number or email already exists",
+        )
+
+
+# -------------------------
+# DELETE STUDENT
+# -------------------------
+
+@router.delete("/{id}", status_code=204)
+async def delete_student(id: int):
+
+    with student_db.cursor() as cur:
+
+        cur.execute(
+            """
+            DELETE FROM students
+            WHERE id = %s
+            RETURNING id;
+            """,
+            (id,),
+        )
+
+        deleted_student = cur.fetchone()
+
+    if deleted_student is None:
+
+        student_db.rollback()
+
+        raise HTTPException(
+            status_code=404,
+            detail="Student not found",
+        )
+
     student_db.commit()
-    new_entry = cur.fetchone()
-    return new_entry
 
-@router.put('/{id}' , response_model= Student ,status_code=200)
-async def update_student(id:int ,student : NewStudent) :
-    cur.execute('select * from students where id = %s' , (id,))
-    rows=cur.fetchall()
-    if rows:
-        update_entry = { 'id' :id ,'name' : student.name , 'class_no' : student.class_no  }
-        cur.execute('''update students
-                        set name = %(name)s ,class_no= %(class_no)s 
-                        where id=%(id)s  ; ''' , update_entry)
-        student_db.commit()
-        return update_entry
-    not_found('student not found')
-
-@router.delete('/{id}' , status_code=204)
-async def delete_student(id:int):
-    cur.execute('select * from students where id = %s' , (id,))
-    rows=cur.fetchall()
-    if rows:
-        cur.execute('DELETE FROM students where id = %s' , (id,))
-        student_db.commit()
-        return
-    not_found('student not found')
+    return None
