@@ -24,3 +24,5 @@ env/
 # Pytest
 .pytest_cache/
 
+#demo
+*.sqlalchemy_demo.py
