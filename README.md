@@ -2,7 +2,7 @@
 
 A production-style backend application built with **FastAPI** for managing campus placement activities.
 
-This project is part of my journey to becoming a Software Engineer. Instead of only following tutorials, I am building this project incrementally while learning backend engineering, databases, authentication, testing, deployment, and scalable software design.
+This project is built incrementally to explore backend engineering, databases, authentication, and scalable software design.
 
 ---
 
@@ -10,7 +10,7 @@ This project is part of my journey to becoming a Software Engineer. Instead of o
 
 The Placement Management System API is designed to simulate a real-world backend used for managing campus placements.
 
-It provides REST APIs for managing students and will gradually expand to support companies, placement drives, applications, authentication, analytics, and other production-level features.
+It provides REST APIs for managing student profiles, accounts, companies, placement drives, applications, and recruitment progress.
 
 The project is intentionally built in phases to understand how real backend systems evolve over time.
 
@@ -18,12 +18,13 @@ The project is intentionally built in phases to understand how real backend syst
 
 ## ✨ Current Features
 
-- Student CRUD APIs
-  - Get all students
-  - Get student by ID
-  - Create student
-  - Update student
-  - Delete student
+- Student profile APIs with student self-service and admin management
+- JWT authentication with Argon2 password hashing
+- Role-based access control for admins and students
+- Company and placement drive APIs
+- Eligibility checks and student applications
+- Recruitment application status workflow
+- PostgreSQL persistence with SQLAlchemy ORM and Alembic migrations
 - FastAPI modular routing using APIRouter
 - Request validation using Pydantic
 - Interactive Swagger UI documentation
@@ -79,11 +80,21 @@ The project structure will continue evolving as new modules are added.
 
 | Method | Endpoint | Description |
 |---------|----------|-------------|
-| GET | `/students/` | Get all students |
-| GET | `/students/{id}` | Get student by ID |
-| POST | `/students/` | Create a student |
-| PUT | `/students/{id}` | Update student details |
-| DELETE | `/students/{id}` | Delete a student |
+| POST | `/auth/register/student` | Register student account and profile |
+| POST | `/auth/login` | Exchange email/password for JWT |
+| GET | `/auth/me` | Get the authenticated account |
+| GET | `/students/me` | Get the authenticated student's profile |
+| GET | `/students/` | List students (admin) |
+| GET | `/students/{student_id}` | Get a profile (self or admin) |
+| POST/PUT/DELETE | `/students/`, `/students/{student_id}` | Manage profiles (admin) |
+| GET/POST/PUT/DELETE | `/companies/`, `/companies/{company_id}` | Browse companies; admins manage them |
+| GET/POST/PUT/DELETE | `/drives/`, `/drives/{drive_id}` | Browse open drives; admins manage them |
+| GET | `/drives/{drive_id}/eligibility` | Check the authenticated student's eligibility |
+| POST | `/applications/` | Apply with JSON body `{"drive_id": 1}` |
+| GET | `/applications/` | List own applications (student) or all (admin) |
+| PATCH | `/applications/{application_id}/status` | Advance/reject an application (admin) |
+
+Authenticated endpoints use `Authorization: Bearer <token>`. Admins are provisioned with `python -m app.create_admin <email>`; public registration only creates student accounts. Applications advance from `submitted` through review, shortlist, interview, selection, and offer, with rejection, acceptance, and decline as terminal states.
 
 ---
 
@@ -120,6 +131,36 @@ Install dependencies
 ```bash
 pip install -r requirements.txt
 ```
+
+Copy `.env.example` to `.env` and set the PostgreSQL credentials and a random `JWT_SECRET` of at least 32 characters. Alternatively, set `DATABASE_URL` to a PostgreSQL connection URL. The default database is `localhost:5432/placement_db`.
+
+Apply the schema. The initial migration adds account linkage to the project's existing `students` table when present:
+
+```bash
+alembic upgrade head
+```
+
+Create the initial administrator; the password is prompted without echo and must be at least 12 characters:
+
+```bash
+python -m app.create_admin admin@example.com
+```
+
+Seed repeatable demo students, companies, placement drives, and one sample application:
+
+```bash
+python -m app.seed_demo_data
+```
+
+The two student accounts use the email addresses in `app/seed_demo_data.py` and the `DEMO_STUDENT_PASSWORD` from `.env`. One student meets the sample software drive's criteria; the other does not. These credentials are for a test database only.
+
+To create the sample test admin, student accounts, companies, drives, and one application from the `TEST_*` values in `.env`, run:
+
+```bash
+python -m app.seed_sample_data
+```
+
+The sample accounts are `test-admin@example.com`, `test-student@example.com`, and `test-student-ineligible@example.com`; the two students share `TEST_STUDENT_PASSWORD`. Sample company and drive records are safe to re-seed. These credentials are for an isolated test database only.
 
 Run the application
 
@@ -167,30 +208,30 @@ This project is being developed incrementally to understand how production backe
 
 ## Phase 2 — Database
 
-- [ ] PostgreSQL
-- [ ] SQLAlchemy ORM
-- [ ] Alembic Migrations
-- [ ] Database Relationships
+- [x] PostgreSQL
+- [x] SQLAlchemy ORM
+- [x] Alembic Migrations
+- [x] Database Relationships
 
 ---
 
 ## Phase 3 — Authentication & Security
 
-- [ ] JWT Authentication
-- [ ] Password Hashing
-- [ ] Login System
-- [ ] Role-Based Access Control
-- [ ] Protected Routes
+- [x] JWT Authentication
+- [x] Password Hashing
+- [x] Login System
+- [x] Role-Based Access Control
+- [x] Protected Routes
 
 ---
 
 ## Phase 4 — Placement Management
 
-- [ ] Company APIs
-- [ ] Placement Drive APIs
-- [ ] Student Applications
-- [ ] Eligibility Management
-- [ ] Recruitment Workflow
+- [x] Company APIs
+- [x] Placement Drive APIs
+- [x] Student Applications
+- [x] Eligibility Management
+- [x] Recruitment Workflow
 
 ---
 

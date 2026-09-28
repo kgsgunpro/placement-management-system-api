@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 
-from app.routers import students
+from app.routers import applications, auth, companies, drives, students
 
 
 app = FastAPI(
@@ -11,6 +11,10 @@ app = FastAPI(
 
 
 app.include_router(students.router)
+app.include_router(auth.router)
+app.include_router(companies.router)
+app.include_router(drives.router)
+app.include_router(applications.router)
 
 
 @app.get("/")
